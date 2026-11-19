@@ -1,40 +1,85 @@
-# 飞特 HD-1910-C001 单颗台架工具
+# FEETECH HD-1910-C001 Single-Servo Bench Toolkit
 
-用本地 Agent 或 Linux 命令行完成 **读状态 → 改 ID → 确认 1 Mbps → 回中到已有 2048 → ±50 counts 点动 → 双路断电后的只读复验**。这一路径已在多颗 C001 裸机台架跑通；仅实测 **FEETECH HD-1910-C001，固件 3.46 / mode 4 / phase 52 / resolution 1**。其他型号和固件、返修件、带载或整机均不在验证范围。回中不是编码器校零，本工具也不更改波特率。
+**English** · [简体中文](README.zh-CN.md)
 
-**现场风险**：只接正常的单颗未装机无负载舵机。断电下按转接板和舵机标识确认线序、极性及供电，固定外壳，轴周围留空。首次写目标就可能上力，旁护者必须能立即切断外部电源（已用台架为 7.5 V）。异响、卡住、异常发热或失联，立即切外部电源、确认失电；只拔 USB 不够，不抓轴、不解卡。换件/改接线前断开外部电源和 USB。软件不保证异常时卸力。
+Check and prepare one servo at a time before installing it in MicroDUCK.
 
-## 安装一次
+Use a local agent or the Linux command line to **read status → change ID → verify communication at 1 Mbps → return to the existing center at 2048 counts → jog by ±50 counts → perform a read-only recheck after both external power and USB are disconnected and reconnected**.
 
-1. 将可信发布版本解压或浅克隆到本地独立目录。把包含 `servo_toolkit/`、`C001-RUNTIME.sha256` 和 `skills/` 的目录设为项目根。本工具用 **Linux + Python 3.12**（已验证版本）、`pyserial`，以及 Linux 常见的 `readlink`、`sha256sum`、`fuser`（psmisc）。另需接在该主机的兼容 USB 转 TTL 半双工舵机转接板和合适的外部电源；已跑通的台架使用微雪总线舵机转接板。仅云端对话或没有设备访问权的 Agent 不能代跑实机。
-2. 安装前按 [SKILL.md 的清单核对](skills/c001-servo/SKILL.md#开始前) 执行其中两条校验命令，不做串口检查。已有 Python 3.12 + pyserial 3.5 可复用，直接用该解释器跑下方最后两条检查；否则在工具根目录用独立环境安装，不装系统包。按实际路径指定 Python 3.12（下例为 `python3.12`）。
+- **Tested:** Multiple **FEETECH HD-1910-C001** servos, one at a time, unmounted and unloaded, with firmware `3.46`, `mode=4`, `phase=52`, and `resolution=1`.
+- Other models and firmware, loaded setups, and assembled robots are outside the tested scope.
 
-   ```sh
-   python3.12 -m venv .venv
-   .venv/bin/python -m pip install -r servo_toolkit/requirements.txt
-   .venv/bin/python -B -c 'import serial; print(serial.__version__)'
-   .venv/bin/python -B -m servo_toolkit --help
-   ```
+## ⚠️ Bench safety
 
-   这两条检查不打开串口。
+- **Connect and secure:** Connect only one known-good, unmounted, unloaded servo. With power disconnected, check the pinout, polarity, and supply against the adapter and servo labels. Secure the housing and keep the area around the shaft clear.
+- **Before motion:** Make sure the servo can move normally before first use. Sending a target position can apply torque. The person supervising at the bench must be able to cut external power immediately.
+- **If something goes wrong:** If you notice unusual noise, binding, overheating, or loss of communication, immediately cut external power, disconnect USB, and confirm the servo is de-energized.
+- **Before swapping or rewiring:** Disconnect both external power and USB.
 
-3. 把 [skills/c001-servo](skills/c001-servo/) **整个目录**放进所用 Agent 的技能目录。常见项目级位置：Codex `.agents/skills/`、Claude Code `.claude/skills/`、Nanobot 当前 Agent 工作区的 `skills/`。按实际版本确认加载，避免覆盖同名技能；没有技能加载器的本地 Agent 可在任务中显式读取 `skills/c001-servo/SKILL.md`。在工具根目录开启 Agent 会话，使用已验证的 Python；也可把根目录和解释器的绝对路径告知 Agent。不要在 `servo_toolkit/` 内建 venv 或夹带其他文件。
+## 🛠️ Setup
 
-### 复制给 Agent 一次安装
+- **Software:** Tested with Linux, Python 3.12, and pyserial 3.5. You also need `readlink`, `sha256sum`, and `fuser` (from `psmisc`).
+- **Hardware:** A compatible USB-to-TTL half-duplex bus servo adapter and a suitable external power supply. The tested bench used a Waveshare bus servo adapter.
+- **Device access:** A cloud-only chat or an agent without serial device access cannot operate the hardware.
 
-复制下面这段，并在消息末尾附上 `来源：<可信本地目录、压缩包路径或固定版本链接>`。
+### 1. Get and verify the toolkit
 
-> 请安装 `c001-servo` 和配套 `servo_toolkit`。使用我在消息里提供的可信本地目录、压缩包或指定的 GitHub 版本；没提供就问我，不猜地址。按包根目录的 README 核对清单和文件，安装整个 `skills/c001-servo` 到你的技能目录，已有同名技能先问我。可复用 Python 3.12 和 pyserial；我只允许在独立 venv 中安装 `servo_toolkit/requirements.txt` 所需依赖。用所选解释器做 `import serial` 和 `-B -m servo_toolkit --help` 离线检查，报告工具根目录、解释器、技能位置，并简述用法和风险。不要用 sudo、改系统配置或权限、打开串口或做任何实机操作。
+- Extract a trusted release archive or shallow-clone a trusted revision into a dedicated local directory.
+- Run the commands below from the toolkit root, which contains `servo_toolkit/`, `C001-RUNTIME.sha256`, and `skills/`.
+- Verify the checksum manifest first, then the runtime files it lists. Both checks must pass before installation. Neither accesses the serial port.
 
-## 开始调试
+```sh
+printf '%s  %s\n' \
+  eaa8523b6b166bd536bc5926c9961b5e39d167899ec1161a9aa925a05b5c61c2 C001-RUNTIME.sha256 \
+  | sha256sum -c --strict --quiet &&
+sha256sum -c --strict --quiet C001-RUNTIME.sha256
+```
 
-用户接好单颗、开放串口权限后，可以发：
+### 2. Prepare the Python environment
 
-> 只接了一颗正常、未装机无负载的 HD-1910-C001，串口权限已开放。供电和线序已核对、外壳已固定、轴周围留空，我在现场旁护且能立即切外部电源。请把 ID 从 1 改为 24，现在直接做到回中和 ±50 点动完成。
+- **Already have Python 3.12 and pyserial 3.5?** Skip the first two commands. Use your interpreter instead of `.venv/bin/python` in the last two.
+- **Need a new environment?** Create `.venv` at the toolkit root, not inside `servo_toolkit/`. Do not add other files to `servo_toolkit/` or install system packages. Use the actual path to your Python 3.12 interpreter if `python3.12` is not on your `PATH`.
 
-把 ID 换成本轮实物的值。Agent 按 [SKILL.md](skills/c001-servo/SKILL.md) 快速执行，不反复翻文档或让用户逐条复制命令。手动使用 CLI 也按该页逐阶段核对，不整段粘贴。点动结束后由你断外部电源和 USB、确认失电后重连，再说「两路已断电重连，请只读复验」。串口没权限、保护停止或复验缺项时看 [简短排查](skills/c001-servo/references/execution-entry.md)。符合条件的回中保护停止，断电重连并重新授权后只试一次；再次失败即停止。没当轮现场授权不动作。
+```sh
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r servo_toolkit/requirements.txt
+.venv/bin/python -B -c 'import serial; print(serial.__version__)'
+.venv/bin/python -B -m servo_toolkit --help
+```
 
-## 来源与发布边界
+The last two checks do not open a serial port.
 
-- 动作实现、测试和依赖原样保留。飞特 [FTServo_Python](https://github.com/ftservo/FTServo_Python) SDK 固定在 `9e6e342f6011dc727ba7144fc835bca5357b3ca9`，其许可见 [vendor/LICENSE.ftservo](servo_toolkit/vendor/LICENSE.ftservo)，不用 PyPI 的其他 SDK 替换。
-- 分享时只带文档、校验清单、技能和工具源码；不要上传 `records/`（含计划和本地端口信息）、虚拟环境、缓存或其他项目资料。正式开源前由权利人确认本工具与文档的许可证；SDK 自带许可证不等于整个项目已授权开源。
+### 3. Install the agent skill (optional)
+
+- Copy the **entire** [`skills/c001-servo/`](skills/c001-servo/) directory into your agent's skills directory.
+- Check that your agent version loads the skill. Do not overwrite a skill with the same name without approval. If your local agent has no skill loader, ask it to read [`SKILL.md`](skills/c001-servo/SKILL.md) directly.
+- Start the agent session from the toolkit root with the verified Python interpreter, or give the agent the absolute paths to both.
+
+### Copyable agent setup prompt
+
+Add `Source: <trusted local directory, archive path, or pinned release link>` to the end of this prompt:
+
+> Please install the `c001-servo` skill and its companion `servo_toolkit`.
+>
+> - **Source:** Use the trusted local directory, archive, or specific GitHub revision I provide. If I haven't provided a source, ask me rather than guessing.
+> - **Verify and install:** Follow the root README to verify the manifest and runtime files. Install the entire `skills/c001-servo/` directory into your skills directory. Ask before replacing a skill with the same name.
+> - **Python environment:** You may reuse Python 3.12 with pyserial 3.5. If you need dependencies, install only those in `servo_toolkit/requirements.txt`, and only in a dedicated virtual environment.
+> - **Check and report:** Use the selected interpreter to check `import serial` and `-B -m servo_toolkit --help` without opening a serial port. Report the toolkit root, interpreter path, and skill location, and briefly explain usage and risks.
+> - **Setup limits:** Do not use `sudo`, change system settings or permissions, open a serial port, or operate the hardware during setup.
+
+## 🎛️ Run a bench session
+
+After connecting one servo and granting serial port access, you can give your local agent a request like this:
+
+> Only one known-good, unmounted, unloaded HD-1910-C001 is connected, and the serial port is accessible. The wiring, polarity, and supply have been checked, the housing is secure, and the area around the shaft is clear. Someone is supervising on site and can cut external power immediately. Change the ID from 1 to 24, then proceed now through centering and the ±50-count jog test.
+
+- **Run:** Replace the example IDs with the values for your servo. Follow the [bench procedure](skills/c001-servo/SKILL.md) one stage at a time, whether you use an agent or the CLI. Do not move the servo without explicit authorization for this session and on-site supervision.
+- **Recheck:** After jogging, disconnect external power and USB, confirm that power is off, then reconnect both. Tell the agent: “I disconnected external power and USB, confirmed the servo was de-energized, and reconnected both. Please perform a read-only recheck.”
+- **Troubleshoot:** For serial access problems, protective stops, or incomplete rechecks, see the [troubleshooting reference](skills/c001-servo/references/execution-entry.md). Only the specific centering stop described in the bench procedure permits one retry, after a full disconnect and reconnect and renewed on-site authorization. If that retry fails, stop.
+
+The bench procedure and troubleshooting reference are in Chinese.
+
+## 📄 Code sources and licensing
+
+- **Bundled SDK:** The [pinned FEETECH FTServo_Python SDK](https://github.com/ftservo/FTServo_Python/tree/9e6e342f6011dc727ba7144fc835bca5357b3ca9) uses the MIT License. Keep the original copyright notice and license text when distributing the SDK; see [`LICENSE.ftservo`](servo_toolkit/vendor/LICENSE.ftservo).
+- **This toolkit:** The project's original toolkit code, tests, documentation, and agent skill are licensed under the [MIT License](LICENSE). Third-party code retains its own license.
