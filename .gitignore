@@ -1,0 +1,6 @@
+/.venv/
+/.nanobot/
+/servo_toolkit/records/
+__pycache__/
+.pytest_cache/
+*.py[cod]
